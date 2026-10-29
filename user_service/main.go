@@ -44,7 +44,7 @@ func main() {
 
 	repo := repository.NewUserRepository(db)
 	svc := service.NewUserService(repo, cfg, mc)
-	h := handler.NewUserHandler(svc)
+	h := handler.NewUserHandler(svc, cfg.JWTSecret)
 	e := httpapi.NewRouter(h)
 
 	log.Printf("User Service is running at %s", cfg.HTTPAddress)

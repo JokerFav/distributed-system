@@ -17,6 +17,8 @@ func NewRouter(h *handler.UserHandler) *echo.Echo {
 	g.POST("/login", h.Login)
 	g.GET("/profile", h.GetProfile)
 	g.GET("/avatar-url", h.GetUploadURL)
+	g.GET("/verify", h.VerifyToken)
+	e.GET("/dashboard", h.Dashboard)
 
 	return e
 }

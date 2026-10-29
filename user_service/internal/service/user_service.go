@@ -2,8 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"sync"
 	"time"
 	"user_service/internal/config"
 	"user_service/internal/domain"
@@ -72,4 +76,52 @@ func (s *UserService) GenerateUploadURL(userID uint, fileName string) (string, e
 		return "", err
 	}
 	return url.String(), nil
+}
+
+type DashboardResponse struct {
+	User   *domain.User    `json:"user"`
+	Orders json.RawMessage `json:"orders"`
+}
+
+func (s *UserService) Dashboard(userID uint) (*DashboardResponse, error) {
+	var (
+		user      *domain.User
+		userErr   error
+		ordersRaw json.RawMessage
+		orderErr  error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		user, userErr = s.repo.FindByID(userID)
+	}()
+
+	go func() {
+		defer wg.Done()
+		orderURL := fmt.Sprintf("%s/orders", s.cfg.OrderServiceURL)
+		req, _ := http.NewRequest("GET", orderURL, nil)
+		req.Header.Set("X-User-Id", fmt.Sprintf("%d", userID))
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			orderErr = err
+			return
+		}
+		defer resp.Body.Close()
+		ordersRaw, orderErr = io.ReadAll(resp.Body)
+	}()
+
+	wg.Wait()
+
+	if userErr != nil {
+		return nil, userErr
+	}
+	if orderErr != nil {
+		return nil, orderErr
+	}
+
+	return &DashboardResponse{User: user, Orders: ordersRaw}, nil
 }
